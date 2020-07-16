@@ -10,13 +10,13 @@ import time
 import json
 import dmc2gym
 import copy
-
 import utils
 from logger import Logger
 from video import VideoRecorder
-
+import matplotlib.pyplot as plt
 from curl_sac import CurlSacAgent
 from torchvision import transforms
+import objgraph
 
 
 def parse_args():
@@ -27,18 +27,18 @@ def parse_args():
     parser.add_argument('--pre_transform_image_size', default=100, type=int)
 
     parser.add_argument('--image_size', default=84, type=int)
-    parser.add_argument('--action_repeat', default=1, type=int)
+    parser.add_argument('--action_repeat', default=8, type=int)
     parser.add_argument('--frame_stack', default=3, type=int)
     # replay buffer
-    parser.add_argument('--replay_buffer_capacity', default=100000, type=int)
+    parser.add_argument('--replay_buffer_capacity', default=50000, type=int)
     # train
     parser.add_argument('--agent', default='curl_sac', type=str)
     parser.add_argument('--init_steps', default=1000, type=int)
-    parser.add_argument('--num_train_steps', default=1000000, type=int)
-    parser.add_argument('--batch_size', default=32, type=int)
+    parser.add_argument('--num_train_steps', default=500000, type=int)
+    parser.add_argument('--batch_size', default=128, type=int)
     parser.add_argument('--hidden_dim', default=1024, type=int)
     # eval
-    parser.add_argument('--eval_freq', default=1000, type=int)
+    parser.add_argument('--eval_freq', default=10000, type=int)
     parser.add_argument('--num_eval_episodes', default=10, type=int)
     # critic
     parser.add_argument('--critic_lr', default=1e-3, type=float)
@@ -69,8 +69,8 @@ def parse_args():
     parser.add_argument('--work_dir', default='.', type=str)
     parser.add_argument('--save_tb', default=False, action='store_true')
     parser.add_argument('--save_buffer', default=False, action='store_true')
-    parser.add_argument('--save_video', default=False, action='store_true')
-    parser.add_argument('--save_model', default=False, action='store_true')
+    parser.add_argument('--save_video', default=True, action='store_true')
+    parser.add_argument('--save_model', default=True, action='store_true')
     parser.add_argument('--detach_encoder', default=False, action='store_true')
 
     parser.add_argument('--log_interval', default=100, type=int)
@@ -171,7 +171,6 @@ def main():
     # stack several consecutive frames together
     if args.encoder_type == 'pixel':
         env = utils.FrameStack(env, k=args.frame_stack)
-    
     # make directory
     ts = time.gmtime() 
     ts = time.strftime("%m-%d", ts)    
@@ -221,10 +220,8 @@ def main():
 
     episode, episode_reward, done = 0, 0, True
     start_time = time.time()
-
     for step in range(args.num_train_steps):
         # evaluate agent periodically
-
         if step % args.eval_freq == 0:
             L.log('eval/episode', episode, step)
             evaluate(env, agent, video, args.num_eval_episodes, L, step,args)
@@ -277,6 +274,7 @@ def main():
 
 
 if __name__ == '__main__':
+    os.environ["CUDA_VISIBLE_DEVICES"] = "0"
     torch.multiprocessing.set_start_method('spawn')
 
     main()
