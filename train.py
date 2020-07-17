@@ -255,8 +255,15 @@ def main():
                 agent.update(replay_buffer, L, step)
 
         next_obs, reward, done, _ = env.step(action)
-
         # allow infinit bootstrap
+        for i, values in enumerate(env.current_state):
+            if i <= 7:
+                if not -5 <= values <= 5:
+                    raise Exception(f"Index less than 7, value out of bounds, Index: {i+1}, value: {values}")
+            else:
+                if not -30 <= values <= 30:
+                    raise Exception(f"Index greater than 7, value out of bounds, Index: {i+1}, value: {values}")
+
         done_bool = 0 if episode_step + 1 == env._max_episode_steps else float(
             done
         )
