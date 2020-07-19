@@ -71,7 +71,7 @@ def preprocess_obs(obs, bits=5):
 class ReplayBuffer(Dataset):
     """Buffer to store environment transitions."""
 
-    def __init__(self, obs_shape,image_obs_space, action_shape, capacity, batch_size, device, image_size=84, transform=None):
+    def __init__(self, obs_shape,image_obs_shape, action_shape, capacity, batch_size, device, image_size=84, transform=None):
         self.capacity = capacity
         self.batch_size = batch_size
         self.device = device
@@ -85,8 +85,8 @@ class ReplayBuffer(Dataset):
         self.actions = np.empty((capacity, *action_shape), dtype=np.float32)
         self.rewards = np.empty((capacity, 1), dtype=np.float32)
         self.not_dones = np.empty((capacity, 1), dtype=np.float32)
-        self.image_obses = np.empty((capacity, *image_obs_space),dtype=obs_dtype)
-        self.image_next_obses = np.empty((capacity, *image_obs_space),dtype=obs_dtype)
+        self.image_obses = np.empty((capacity, *image_obs_shape),dtype=obs_dtype)
+        self.image_next_obses = np.empty((capacity, *image_obs_shape),dtype=obs_dtype)
 
         self.idx = 0
         self.last_save = 0
@@ -161,8 +161,8 @@ class ReplayBuffer(Dataset):
             self.next_obses[self.last_save:self.idx],
             self.actions[self.last_save:self.idx],
             self.rewards[self.last_save:self.idx],
-            self.not_dones[self.last_save:self.idx]
-            self.image_obses[self.last_save:self.idx]
+            self.not_dones[self.last_save:self.idx],
+            self.image_obses[self.last_save:self.idx],
             self.image_next_obses[self.last_save:self.idx]
         ]
         self.last_save = self.idx

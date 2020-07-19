@@ -187,14 +187,15 @@ def main():
 
     action_shape = env.action_space.shape
 
-    if args.encoder_type == 'pixel':
-        image_obs_shape = (3 * args.frame_stack, args.image_size, args.image_size)
-        pre_aug_image_obs_shape = (3 * args.frame_stack, args.pre_transform_image_size, args.pre_transform_image_size)
-        obs_shape = env.observation_space.shape
-        pre_aug_obs_shape = obs_shape
-    else:
-        obs_shape = env.observation_space.shape
-        pre_aug_obs_shape = obs_shape
+    #if args.encoder_type == 'pixel':
+    # need both observation spaces
+    image_obs_shape = (3 * args.frame_stack, args.image_size, args.image_size)
+    pre_aug_image_obs_shape = (3 * args.frame_stack, args.pre_transform_image_size, args.pre_transform_image_size)
+    obs_shape = env.observation_space.shape
+    pre_aug_obs_shape = obs_shape
+    #else:
+    #    obs_shape = env.observation_space.shape
+    #    pre_aug_obs_shape = obs_shape
 
     replay_buffer = utils.ReplayBuffer(
         obs_shape=pre_aug_obs_shape,
@@ -207,7 +208,7 @@ def main():
     )
 
     agent = make_agent(
-        obs_shape=obs_shape,
+        obs_shape=image_obs_shape,
         action_shape=action_shape,
         args=args,
         device=device
@@ -238,7 +239,7 @@ def main():
             if step % args.log_interval == 0:
                 L.log('train/episode_reward', episode_reward, step)
 
-            obs = env.reset()
+            image_obs = env.reset()
             done = False
             episode_reward = 0
             episode_step = 0
@@ -251,15 +252,30 @@ def main():
             action = env.action_space.sample()
         else:
             with utils.eval_mode(agent):
-                action = agent.sample_action(obs)
+                action = agent.sample_action(image_obs)
 
         # run training update
         if step >= args.init_steps:
             num_updates = 1
             for _ in range(num_updates):
                 agent.update(replay_buffer, L, step)
+        
+        #get low state obs
+        dmc2gym._from_pixels = False
+        dmc2gym._channels_first = True
+        obs = env._get_obs()
+        dmc2gym._from_pixels = True
+        dmc2gym._channels_first = False
 
-        next_obs, reward, done, _ = env.step(action)
+        image_next_obs, reward, done, _ = env.step(action)
+
+        #get low state next_obs
+        dmc2gym._from_pixels = False
+        dmc2gym._channels_first = True
+        next_obs = env._get_obs()
+        dmc2gym._from_pixels = True
+        dmc2gym._channels_first = False
+
         # allow infinit bootstrap
         for i, values in enumerate(env.current_state):
             if i <= 7:
@@ -273,9 +289,9 @@ def main():
             done
         )
         episode_reward += reward
-        replay_buffer.add(obs, action, reward, next_obs, done_bool)
+        replay_buffer.add(obs, action, reward, next_obs, done_bool,image_obs,image_next_obs)
 
-        obs = next_obs
+        image_obs = image_next_obs
         episode_step += 1
 
 
