@@ -71,7 +71,7 @@ def preprocess_obs(obs, bits=5):
 class ReplayBuffer(Dataset):
     """Buffer to store environment transitions."""
 
-    def __init__(self, obs_shape, action_shape, capacity, batch_size, device, image_size=84, transform=None):
+    def __init__(self, obs_shape,image_obs_space, action_shape, capacity, batch_size, device, image_size=84, transform=None):
         self.capacity = capacity
         self.batch_size = batch_size
         self.device = device
@@ -85,18 +85,22 @@ class ReplayBuffer(Dataset):
         self.actions = np.empty((capacity, *action_shape), dtype=np.float32)
         self.rewards = np.empty((capacity, 1), dtype=np.float32)
         self.not_dones = np.empty((capacity, 1), dtype=np.float32)
+        self.image_obses = np.empty((capacity, *image_obs_space),dtype=obs_dtype)
+        self.image_next_obses = np.empty((capacity, *image_obs_space),dtype=obs_dtype)
 
         self.idx = 0
         self.last_save = 0
         self.full = False
 
-    def add(self, obs, action, reward, next_obs, done):
+    def add(self, obs, action, reward, next_obs, done,image_obs,image_next_obs):
 
         np.copyto(self.obses[self.idx], obs)
         np.copyto(self.actions[self.idx], action)
         np.copyto(self.rewards[self.idx], reward)
         np.copyto(self.next_obses[self.idx], next_obs)
         np.copyto(self.not_dones[self.idx], not done)
+        np.copyto(self.image_obses[self.idx],image_obs)
+        np.copyto(self.image_next_obses[self.idx],image_next_obs)
 
         self.idx = (self.idx + 1) % self.capacity
         self.full = self.full or self.idx == 0
@@ -158,6 +162,8 @@ class ReplayBuffer(Dataset):
             self.actions[self.last_save:self.idx],
             self.rewards[self.last_save:self.idx],
             self.not_dones[self.last_save:self.idx]
+            self.image_obses[self.last_save:self.idx]
+            self.image_next_obses[self.last_save:self.idx]
         ]
         self.last_save = self.idx
         torch.save(payload, path)
@@ -175,6 +181,8 @@ class ReplayBuffer(Dataset):
             self.actions[start:end] = payload[2]
             self.rewards[start:end] = payload[3]
             self.not_dones[start:end] = payload[4]
+            self.image_obses[start:end] = payload[5]
+            self.image_next_obses[start:end] = payload[6]
             self.idx = end
 
     def __getitem__(self, idx):
@@ -187,12 +195,14 @@ class ReplayBuffer(Dataset):
         reward = self.rewards[idx]
         next_obs = self.next_obses[idx]
         not_done = self.not_dones[idx]
+        image_obs = self.image_obses[idx]
+        image_next_obs = self.image_next_obses[idx]
 
         if self.transform:
-            obs = self.transform(obs)
-            next_obs = self.transform(next_obs)
+            image_obs = self.transform(image_obs)
+            image_next_obs = self.transform(image_next_obs)
 
-        return obs, action, reward, next_obs, not_done
+        return obs, action, reward, next_obs, not_done, image_obs , image_next_obs
 
     def __len__(self):
         return self.capacity

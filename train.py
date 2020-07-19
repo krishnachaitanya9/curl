@@ -171,7 +171,7 @@ def main():
     env_name = args.domain_name + '-' + args.task_name
     exp_name = env_name + '-' + ts + '-im' + str(args.image_size) + '-b' \
                + str(args.batch_size) + '-s' + str(args.seed) + '-' + args.encoder_type
-    args.work_dir = args.work_dir + '/' + exp_name
+    args.work_dir = args.work_dir + '\\' + exp_name
 
     utils.make_dir(args.work_dir)
     video_dir = utils.make_dir(os.path.join(args.work_dir, 'video'))
@@ -188,14 +188,17 @@ def main():
     action_shape = env.action_space.shape
 
     if args.encoder_type == 'pixel':
-        obs_shape = (3 * args.frame_stack, args.image_size, args.image_size)
-        pre_aug_obs_shape = (3 * args.frame_stack, args.pre_transform_image_size, args.pre_transform_image_size)
+        image_obs_shape = (3 * args.frame_stack, args.image_size, args.image_size)
+        pre_aug_image_obs_shape = (3 * args.frame_stack, args.pre_transform_image_size, args.pre_transform_image_size)
+        obs_shape = env.observation_space.shape
+        pre_aug_obs_shape = obs_shape
     else:
         obs_shape = env.observation_space.shape
         pre_aug_obs_shape = obs_shape
 
     replay_buffer = utils.ReplayBuffer(
         obs_shape=pre_aug_obs_shape,
+        image_obs_shape = pre_aug_image_obs_shape,
         action_shape=action_shape,
         capacity=args.replay_buffer_capacity,
         batch_size=args.batch_size,
@@ -209,6 +212,8 @@ def main():
         args=args,
         device=device
     )
+
+    print("save_tb: ", args.save_tb)
 
     L = Logger(args.work_dir, use_tb=args.save_tb)
 
