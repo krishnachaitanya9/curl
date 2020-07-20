@@ -162,6 +162,8 @@ def main():
 
     env.seed(args.seed)
 
+    print("test shape obs space: ", env.observation_space)
+
     # stack several consecutive frames together
     if args.encoder_type == 'pixel':
         env = utils.FrameStack(env, k=args.frame_stack)
@@ -189,16 +191,19 @@ def main():
 
     #if args.encoder_type == 'pixel':
     # need both observation spaces
+    env.reset()
+
     image_obs_shape = (3 * args.frame_stack, args.image_size, args.image_size)
     pre_aug_image_obs_shape = (3 * args.frame_stack, args.pre_transform_image_size, args.pre_transform_image_size)
-    obs_shape = env.observation_space.shape
-    pre_aug_obs_shape = obs_shape
+    #obs_shape = env.observation_space.shape
+    obs_shape = env.current_state.shape
+    print("obs_shape: ", obs_shape)
     #else:
     #    obs_shape = env.observation_space.shape
     #    pre_aug_obs_shape = obs_shape
 
     replay_buffer = utils.ReplayBuffer(
-        obs_shape=pre_aug_obs_shape,
+        obs_shape=obs_shape,
         image_obs_shape = pre_aug_image_obs_shape,
         action_shape=action_shape,
         capacity=args.replay_buffer_capacity,
@@ -206,6 +211,7 @@ def main():
         device=device,
         image_size=args.image_size,
     )
+    print('obs_shape: ', obs_shape, ": ",image_obs_shape)
 
     agent = make_agent(
         obs_shape=image_obs_shape,
@@ -261,20 +267,23 @@ def main():
                 agent.update(replay_buffer, L, step)
         
         #get low state obs
-        dmc2gym._from_pixels = False
-        dmc2gym._channels_first = True
-        obs = env._get_obs()
-        dmc2gym._from_pixels = True
-        dmc2gym._channels_first = False
+        env._from_pixels = False
+        env._channels_first = True
+        obs = env.current_state
+        env._from_pixels = True
+        env._channels_first = False
 
         image_next_obs, reward, done, _ = env.step(action)
 
         #get low state next_obs
-        dmc2gym._from_pixels = False
-        dmc2gym._channels_first = True
-        next_obs = env._get_obs()
-        dmc2gym._from_pixels = True
-        dmc2gym._channels_first = False
+        env._from_pixels = False
+        env._channels_first = True
+        next_obs = env.current_state
+        env._from_pixels = True
+        env._channels_first = False
+
+        print('obs shape: ', obs.shape)
+        print('image obs shape: ',image_obs.shape)
 
         # allow infinit bootstrap
         for i, values in enumerate(env.current_state):
