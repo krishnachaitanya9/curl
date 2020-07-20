@@ -360,10 +360,10 @@ class CurlSacAgent(object):
             mu, pi, _, _ = self.actor(obs, compute_log_pi=False)
             return pi.cpu().data.numpy().flatten()
 
-    def update_critic(self, obs, action, reward, next_obs, not_done, L, step):
+    def update_critic(self, obs, action, reward, next_obs, not_done, image_obs, image_next_obs, L, step):
         with torch.no_grad():
-            _, policy_action, log_pi, _ = self.actor(next_obs)
-            target_Q1, target_Q2 = self.critic_target(next_obs, policy_action)
+            _, policy_action, log_pi, _ = self.actor(image_next_obs)
+            target_Q1, target_Q2 = self.critic_target(image_next_obs, policy_action)
             target_V = torch.min(target_Q1,
                                  target_Q2) - self.alpha.detach() * log_pi
             target_Q = reward + (not_done * self.discount * target_V)
@@ -437,17 +437,17 @@ class CurlSacAgent(object):
 
     def update(self, replay_buffer, L, step):
         if self.encoder_type == 'pixel':
-            obs, action, reward, next_obs, not_done, cpc_kwargs = replay_buffer.sample_cpc()
+            obs, action, reward, next_obs, not_done, image_obs, image_next_obs, cpc_kwargs = replay_buffer.sample_cpc()
         else:
-            obs, action, reward, next_obs, not_done = replay_buffer.sample_proprio()
+            obs, action, reward, next_obs, not_done, image_obs, image_next_obs = replay_buffer.sample_proprio()
     
         if step % self.log_interval == 0:
             L.log('train/batch_reward', reward.mean(), step)
 
-        self.update_critic(obs, action, reward, next_obs, not_done, L, step)
+        self.update_critic(image_obs, action, reward, image_next_obs, not_done, image_obs, image_next_obs, L, step)
 
         if step % self.actor_update_freq == 0:
-            self.update_actor_and_alpha(obs, L, step)
+            self.update_actor_and_alpha(image_obs, L, step)
 
         if step % self.critic_target_update_freq == 0:
             utils.soft_update_params(

@@ -111,17 +111,18 @@ class ReplayBuffer(Dataset):
             0, self.capacity if self.full else self.idx, size=self.batch_size
         )
 
-        obses = self.obses[idxs]
-        next_obses = self.next_obses[idxs]
+        image_obses = self.image_obses[idxs]
+        image_next_obses = self.image_next_obses[idxs]
 
-        obses = torch.as_tensor(obses, device=self.device).float()
+        obses = torch.as_tensor(self.obses[idxs], device=self.device)
         actions = torch.as_tensor(self.actions[idxs], device=self.device)
         rewards = torch.as_tensor(self.rewards[idxs], device=self.device)
-        next_obses = torch.as_tensor(
-            next_obses, device=self.device
-        ).float()
+        next_obses = torch.as_tensor(self.next_obses[idxs], device=self.device)
         not_dones = torch.as_tensor(self.not_dones[idxs], device=self.device)
-        return obses, actions, rewards, next_obses, not_dones
+        image_obses = torch.as_tensor(image_obses,device=self.device).float()
+        image_next_obses = torch.as_tensor(image_next_obses,device=self.device).float()
+
+        return obses, actions, rewards, next_obses, not_dones, image_obses, image_next_obses
 
     def sample_cpc(self):
 
@@ -132,25 +133,32 @@ class ReplayBuffer(Dataset):
 
         obses = self.obses[idxs]
         next_obses = self.next_obses[idxs]
-        pos = obses.copy()
 
-        obses = random_crop(obses, self.image_size)
-        next_obses = random_crop(next_obses, self.image_size)
+
+        image_obses = self.image_obses[idxs]
+        image_next_obses = self.image_next_obses[idxs]
+        pos = image_obses.copy()
+
+        image_obses = random_crop(image_obses, self.image_size)
+        image_next_obses = random_crop(image_next_obses, self.image_size)
         pos = random_crop(pos, self.image_size)
 
-        obses = torch.as_tensor(obses, device=self.device).float()
-        next_obses = torch.as_tensor(
-            next_obses, device=self.device
+        image_obses = torch.as_tensor(image_obses, device=self.device).float()
+        image_next_obses = torch.as_tensor(
+            image_next_obses, device=self.device
         ).float()
+        
+        obses = torch.as_tensor(self.obses[idxs], device=self.device)
+        next_obses = torch.as_tensor(self.next_obses[idxs], device=self.device)
         actions = torch.as_tensor(self.actions[idxs], device=self.device)
         rewards = torch.as_tensor(self.rewards[idxs], device=self.device)
         not_dones = torch.as_tensor(self.not_dones[idxs], device=self.device)
 
         pos = torch.as_tensor(pos, device=self.device).float()
-        cpc_kwargs = dict(obs_anchor=obses, obs_pos=pos,
+        cpc_kwargs = dict(obs_anchor=image_obses, obs_pos=pos,
                           time_anchor=None, time_pos=None)
 
-        return obses, actions, rewards, next_obses, not_dones, cpc_kwargs
+        return obses, actions, rewards, next_obses, not_dones,image_obses,image_next_obses, cpc_kwargs
 
     def save(self, save_dir):
         if self.idx == self.last_save:

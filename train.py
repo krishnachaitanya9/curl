@@ -282,8 +282,8 @@ def main():
         env._from_pixels = True
         env._channels_first = False
 
-        print('obs shape: ', obs.shape)
-        print('image obs shape: ',image_obs.shape)
+        #print('obs shape: ', obs.shape)
+        #print('image obs shape: ',image_obs.shape)
 
         # allow infinit bootstrap
         for i, values in enumerate(env.current_state):
