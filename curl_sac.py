@@ -47,21 +47,23 @@ def weight_init(m):
 class Actor(nn.Module):
     """MLP actor network."""
     def __init__(
-        self, obs_shape, action_shape, hidden_dim, encoder_type,
+        self, obs_shape, image_obs_shape, action_shape, hidden_dim, encoder_type,
         encoder_feature_dim, log_std_min, log_std_max, num_layers, num_filters
     ):
         super().__init__()
 
         self.encoder = make_encoder(
-            encoder_type, obs_shape, encoder_feature_dim, num_layers,
+            encoder_type, image_obs_shape, encoder_feature_dim, num_layers,
             num_filters, output_logits=True
         )
+        self.obs_dim = obs_shape[0]
+        print('low obs dim:', self.obs_dim, ": ", self.encoder.feature_dim)
 
         self.log_std_min = log_std_min
         self.log_std_max = log_std_max
 
         self.trunk = nn.Sequential(
-            nn.Linear(self.encoder.feature_dim, hidden_dim), nn.ReLU(),
+            nn.Linear(self.encoder.feature_dim + self.obs_dim, hidden_dim), nn.ReLU(),
             nn.Linear(hidden_dim, hidden_dim), nn.ReLU(),
             nn.Linear(hidden_dim, 2 * action_shape[0])
         )
@@ -74,9 +76,20 @@ class Actor(nn.Module):
     ):
         #print("test break: ",len(obs_tuple))
         [obs,image_obs] = obs_tuple
+
+        #print("type test: ",type(obs),np.ndarray)
+        if(type(obs) == np.ndarray): # needed for dealing with initial data for 1000 steps
+            device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+            #print("actor forward obs shape: ", obs.shape, ": ", image_obs.shape)
+            obs = torch.tensor(obs, device=device).float()
+            obs = torch.reshape(obs,(-1,obs.shape[0]))
+        #print("actor forward obs shape: ", obs.shape, ": ", image_obs.shape)
         encode_obs = self.encoder(image_obs, detach=detach_encoder)
 
-        mu, log_std = self.trunk(encode_obs).chunk(2, dim=-1)
+        #print('shapes of obs after reshape:', obs.shape, ": ", encode_obs.shape)
+        combine_obs = torch.cat((obs,encode_obs),axis = -1)
+
+        mu, log_std = self.trunk(combine_obs).chunk(2, dim=-1)
 
         # constrain log_std inside [log_std_min, log_std_max]
         log_std = torch.tanh(log_std)
@@ -159,6 +172,7 @@ class Critic(nn.Module):
         self.apply(weight_init)
 
     def forward(self, image_obs, action, detach_encoder=False):
+        #[obs,image_obs] = tuple_obs
         # detach_encoder allows to stop gradient propogation to encoder
         encode_obs = self.encoder(image_obs, detach=detach_encoder)
 
@@ -234,6 +248,7 @@ class CurlSacAgent(object):
     def __init__(
         self,
         obs_shape,
+        image_obs_shape,
         action_shape,
         device,
         hidden_dim=256,
@@ -269,24 +284,24 @@ class CurlSacAgent(object):
         self.critic_target_update_freq = critic_target_update_freq
         self.cpc_update_freq = cpc_update_freq
         self.log_interval = log_interval
-        self.image_size = obs_shape[-1]
+        self.image_size = image_obs_shape[-1]
         self.curl_latent_dim = curl_latent_dim
         self.detach_encoder = detach_encoder
         self.encoder_type = encoder_type
 
         self.actor = Actor(
-            obs_shape, action_shape, hidden_dim, encoder_type,
+            obs_shape, image_obs_shape, action_shape, hidden_dim, encoder_type,
             encoder_feature_dim, actor_log_std_min, actor_log_std_max,
             num_layers, num_filters
         ).to(device)
 
         self.critic = Critic(
-            obs_shape, action_shape, hidden_dim, encoder_type,
+            image_obs_shape, action_shape, hidden_dim, encoder_type,
             encoder_feature_dim, num_layers, num_filters
         ).to(device)
 
         self.critic_target = Critic(
-            obs_shape, action_shape, hidden_dim, encoder_type,
+            image_obs_shape, action_shape, hidden_dim, encoder_type,
             encoder_feature_dim, num_layers, num_filters
         ).to(device)
 
@@ -361,11 +376,13 @@ class CurlSacAgent(object):
         with torch.no_grad():
             image_obs = torch.FloatTensor(image_obs).to(self.device)
             image_obs = image_obs.unsqueeze(0)
+            #print("test shape sample_action: ", image_obs.shape, ": ", obs.shape)
             mu, pi, _, _ = self.actor([obs,image_obs], compute_log_pi=False)
             return pi.cpu().data.numpy().flatten()
 
     def update_critic(self, obs, action, reward, next_obs, not_done, image_obs, image_next_obs, L, step):
         with torch.no_grad():
+            #print("update critic check shape: ", next_obs.shape,": ", image_next_obs.shape)
             _, policy_action, log_pi, _ = self.actor([next_obs,image_next_obs])
             target_Q1, target_Q2 = self.critic_target(image_next_obs, policy_action)
             target_V = torch.min(target_Q1,
@@ -452,7 +469,8 @@ class CurlSacAgent(object):
         if step % self.log_interval == 0:
             L.log('train/batch_reward', reward.mean(), step)
 
-        self.update_critic(image_obs, action, reward, image_next_obs, not_done, image_obs, image_next_obs, L, step)
+        #print("update critic input check shape: ", next_obs.shape,": ", image_next_obs.shape)
+        self.update_critic(obs, action, reward, next_obs, not_done, image_obs, image_next_obs, L, step)
 
         if step % self.actor_update_freq == 0:
             self.update_actor_and_alpha([obs,image_obs], L, step)

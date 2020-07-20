@@ -80,6 +80,9 @@ def evaluate(env, agent, video, num_episodes, L, step, args):
         for i in range(num_episodes):
             image_obs = env.reset()
             obs = env.current_state
+            #obs = torch.tensor(obs, device=device).float()
+            #obs = torch.reshape(obs,(1,obs.shape[0]))
+            
             video.init(enabled=(i == 0))
             done = False
             episode_reward = 0
@@ -110,10 +113,11 @@ def evaluate(env, agent, video, num_episodes, L, step, args):
     L.dump(step)
 
 
-def make_agent(obs_shape, action_shape, args, device):
+def make_agent(obs_shape, image_obs_shape, action_shape, args, device):
     if args.agent == 'curl_sac':
         return CurlSacAgent(
             obs_shape=obs_shape,
+            image_obs_shape=image_obs_shape,
             action_shape=action_shape,
             device=device,
             hidden_dim=args.hidden_dim,
@@ -215,7 +219,8 @@ def main():
     print('obs_shape: ', obs_shape, ": ",image_obs_shape)
 
     agent = make_agent(
-        obs_shape=image_obs_shape,
+        obs_shape=obs_shape,
+        image_obs_shape=image_obs_shape,
         action_shape=action_shape,
         args=args,
         device=device
@@ -259,6 +264,7 @@ def main():
             action = env.action_space.sample()
         else:
             with utils.eval_mode(agent):
+                #print("test obs in evalmode: ", image_obs.shape)
                 action = agent.sample_action([obs,image_obs])
 
         # run training update
@@ -271,6 +277,8 @@ def main():
         env._from_pixels = False
         env._channels_first = True
         obs = env.current_state
+        #obs = torch.tensor(obs, device=device).float()
+        #obs = torch.reshape(obs,(1,obs.shape[0]))
         env._from_pixels = True
         env._channels_first = False
 
@@ -280,6 +288,8 @@ def main():
         env._from_pixels = False
         env._channels_first = True
         next_obs = env.current_state
+        #next_obs = torch.tensor(next_obs, device=device).float()
+        #next_obs = torch.reshape(next_obs,(1,next_obs.shape[0]))
         env._from_pixels = True
         env._channels_first = False
 
