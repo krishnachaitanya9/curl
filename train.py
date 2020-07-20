@@ -78,20 +78,20 @@ def evaluate(env, agent, video, num_episodes, L, step, args):
         start_time = time.time()
         prefix = 'stochastic_' if sample_stochastically else ''
         for i in range(num_episodes):
-            obs = env.reset()
+            image_obs = env.reset()
             video.init(enabled=(i == 0))
             done = False
             episode_reward = 0
             while not done:
                 # center crop image
                 if args.encoder_type == 'pixel':
-                    obs = utils.center_crop_image(obs, args.image_size)
+                    image_obs = utils.center_crop_image(image_obs, args.image_size)
                 with utils.eval_mode(agent):
                     if sample_stochastically:
-                        action = agent.sample_action(obs)
+                        action = agent.sample_action(image_obs)
                     else:
-                        action = agent.select_action(obs)
-                obs, reward, done, _ = env.step(action)
+                        action = agent.select_action(image_obs)
+                image_obs, reward, done, _ = env.step(action)
                 video.record(env)
                 episode_reward += reward
 

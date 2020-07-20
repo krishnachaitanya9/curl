@@ -70,11 +70,11 @@ class Actor(nn.Module):
         self.apply(weight_init)
 
     def forward(
-        self, obs, compute_pi=True, compute_log_pi=True, detach_encoder=False
+        self, image_obs, compute_pi=True, compute_log_pi=True, detach_encoder=False
     ):
-        obs = self.encoder(obs, detach=detach_encoder)
+        image_obs = self.encoder(image_obs, detach=detach_encoder)
 
-        mu, log_std = self.trunk(obs).chunk(2, dim=-1)
+        mu, log_std = self.trunk(image_obs).chunk(2, dim=-1)
 
         # constrain log_std inside [log_std_min, log_std_max]
         log_std = torch.tanh(log_std)
@@ -156,12 +156,12 @@ class Critic(nn.Module):
         self.outputs = dict()
         self.apply(weight_init)
 
-    def forward(self, obs, action, detach_encoder=False):
+    def forward(self, image_obs, action, detach_encoder=False):
         # detach_encoder allows to stop gradient propogation to encoder
-        obs = self.encoder(obs, detach=detach_encoder)
+        encode_obs = self.encoder(image_obs, detach=detach_encoder)
 
-        q1 = self.Q1(obs, action)
-        q2 = self.Q2(obs, action)
+        q1 = self.Q1(encode_obs, action)
+        q2 = self.Q2(encode_obs, action)
 
         self.outputs['q1'] = q1
         self.outputs['q2'] = q2
@@ -340,24 +340,24 @@ class CurlSacAgent(object):
     def alpha(self):
         return self.log_alpha.exp()
 
-    def select_action(self, obs):
+    def select_action(self, image_obs):
         with torch.no_grad():
-            obs = torch.FloatTensor(obs).to(self.device)
-            obs = obs.unsqueeze(0)
+            image_obs = torch.FloatTensor(image_obs).to(self.device)
+            image_obs = image_obs.unsqueeze(0)
             mu, _, _, _ = self.actor(
-                obs, compute_pi=False, compute_log_pi=False
+                image_obs, compute_pi=False, compute_log_pi=False
             )
             return mu.cpu().data.numpy().flatten()
 
 
-    def sample_action(self, obs):
-        if obs.shape[-1] != self.image_size:
-            obs = utils.center_crop_image(obs, self.image_size)
+    def sample_action(self, image_obs):
+        if image_obs.shape[-1] != self.image_size:
+            image_obs = utils.center_crop_image(image_obs, self.image_size)
  
         with torch.no_grad():
-            obs = torch.FloatTensor(obs).to(self.device)
-            obs = obs.unsqueeze(0)
-            mu, pi, _, _ = self.actor(obs, compute_log_pi=False)
+            image_obs = torch.FloatTensor(image_obs).to(self.device)
+            image_obs = image_obs.unsqueeze(0)
+            mu, pi, _, _ = self.actor(image_obs, compute_log_pi=False)
             return pi.cpu().data.numpy().flatten()
 
     def update_critic(self, obs, action, reward, next_obs, not_done, image_obs, image_next_obs, L, step):
@@ -370,7 +370,7 @@ class CurlSacAgent(object):
 
         # get current Q estimates
         current_Q1, current_Q2 = self.critic(
-            obs, action, detach_encoder=self.detach_encoder)
+            image_obs, action, detach_encoder=self.detach_encoder)
         critic_loss = F.mse_loss(current_Q1,
                                  target_Q) + F.mse_loss(current_Q2, target_Q)
         if step % self.log_interval == 0:
@@ -384,10 +384,10 @@ class CurlSacAgent(object):
 
         self.critic.log(L, step)
 
-    def update_actor_and_alpha(self, obs, L, step):
+    def update_actor_and_alpha(self, image_obs, L, step):
         # detach encoder, so we don't update it with the actor loss
-        _, pi, log_pi, log_std = self.actor(obs, detach_encoder=True)
-        actor_Q1, actor_Q2 = self.critic(obs, pi, detach_encoder=True)
+        _, pi, log_pi, log_std = self.actor(image_obs, detach_encoder=True)
+        actor_Q1, actor_Q2 = self.critic(image_obs, pi, detach_encoder=True)
 
         actor_Q = torch.min(actor_Q1, actor_Q2)
         actor_loss = (self.alpha.detach() * log_pi - actor_Q).mean()
@@ -438,6 +438,7 @@ class CurlSacAgent(object):
     def update(self, replay_buffer, L, step):
         if self.encoder_type == 'pixel':
             obs, action, reward, next_obs, not_done, image_obs, image_next_obs, cpc_kwargs = replay_buffer.sample_cpc()
+            #print("sample test shape: ", image_obs.shape)
         else:
             obs, action, reward, next_obs, not_done, image_obs, image_next_obs = replay_buffer.sample_proprio()
     
