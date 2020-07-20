@@ -70,11 +70,13 @@ class Actor(nn.Module):
         self.apply(weight_init)
 
     def forward(
-        self, image_obs, compute_pi=True, compute_log_pi=True, detach_encoder=False
+        self, obs_tuple, compute_pi=True, compute_log_pi=True, detach_encoder=False
     ):
-        image_obs = self.encoder(image_obs, detach=detach_encoder)
+        #print("test break: ",len(obs_tuple))
+        [obs,image_obs] = obs_tuple
+        encode_obs = self.encoder(image_obs, detach=detach_encoder)
 
-        mu, log_std = self.trunk(image_obs).chunk(2, dim=-1)
+        mu, log_std = self.trunk(encode_obs).chunk(2, dim=-1)
 
         # constrain log_std inside [log_std_min, log_std_max]
         log_std = torch.tanh(log_std)
@@ -340,29 +342,31 @@ class CurlSacAgent(object):
     def alpha(self):
         return self.log_alpha.exp()
 
-    def select_action(self, image_obs):
+    def select_action(self, obs_tuple):
+        [obs,image_obs] = obs_tuple
         with torch.no_grad():
             image_obs = torch.FloatTensor(image_obs).to(self.device)
             image_obs = image_obs.unsqueeze(0)
             mu, _, _, _ = self.actor(
-                image_obs, compute_pi=False, compute_log_pi=False
+                [obs,image_obs], compute_pi=False, compute_log_pi=False
             )
             return mu.cpu().data.numpy().flatten()
 
 
-    def sample_action(self, image_obs):
+    def sample_action(self, obs_tuple):
+        [obs,image_obs] = obs_tuple
         if image_obs.shape[-1] != self.image_size:
             image_obs = utils.center_crop_image(image_obs, self.image_size)
  
         with torch.no_grad():
             image_obs = torch.FloatTensor(image_obs).to(self.device)
             image_obs = image_obs.unsqueeze(0)
-            mu, pi, _, _ = self.actor(image_obs, compute_log_pi=False)
+            mu, pi, _, _ = self.actor([obs,image_obs], compute_log_pi=False)
             return pi.cpu().data.numpy().flatten()
 
     def update_critic(self, obs, action, reward, next_obs, not_done, image_obs, image_next_obs, L, step):
         with torch.no_grad():
-            _, policy_action, log_pi, _ = self.actor(image_next_obs)
+            _, policy_action, log_pi, _ = self.actor([next_obs,image_next_obs])
             target_Q1, target_Q2 = self.critic_target(image_next_obs, policy_action)
             target_V = torch.min(target_Q1,
                                  target_Q2) - self.alpha.detach() * log_pi
@@ -384,9 +388,12 @@ class CurlSacAgent(object):
 
         self.critic.log(L, step)
 
-    def update_actor_and_alpha(self, image_obs, L, step):
+    def update_actor_and_alpha(self, obs_tuple, L, step):
+        # get obs spaces
+        [obs,image_obs] = obs_tuple
+
         # detach encoder, so we don't update it with the actor loss
-        _, pi, log_pi, log_std = self.actor(image_obs, detach_encoder=True)
+        _, pi, log_pi, log_std = self.actor([obs,image_obs], detach_encoder=True)
         actor_Q1, actor_Q2 = self.critic(image_obs, pi, detach_encoder=True)
 
         actor_Q = torch.min(actor_Q1, actor_Q2)
@@ -448,7 +455,7 @@ class CurlSacAgent(object):
         self.update_critic(image_obs, action, reward, image_next_obs, not_done, image_obs, image_next_obs, L, step)
 
         if step % self.actor_update_freq == 0:
-            self.update_actor_and_alpha(image_obs, L, step)
+            self.update_actor_and_alpha([obs,image_obs], L, step)
 
         if step % self.critic_target_update_freq == 0:
             utils.soft_update_params(
