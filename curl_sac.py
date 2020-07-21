@@ -67,6 +67,7 @@ class Actor(nn.Module):
             nn.Linear(hidden_dim, hidden_dim), nn.ReLU(),
             nn.Linear(hidden_dim, 2 * action_shape[0])
         )
+        self.test_layer = nn.Linear(17, 17)
 
         self.outputs = dict()
         self.apply(weight_init)
@@ -87,7 +88,8 @@ class Actor(nn.Module):
         encode_obs = self.encoder(image_obs, detach=detach_encoder)
 
         #print('shapes of obs after reshape:', obs.shape, ": ", encode_obs.shape)
-        combine_obs = torch.cat((obs,encode_obs),axis = -1)
+        modified_obs = torch.sigmoid(self.test_layer(obs))
+        combine_obs = torch.cat((modified_obs,encode_obs),axis = -1)
 
         mu, log_std = self.trunk(combine_obs).chunk(2, dim=-1)
 
