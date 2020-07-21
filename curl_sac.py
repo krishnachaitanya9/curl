@@ -164,20 +164,22 @@ class Critic(nn.Module):
         )
 
         self.Q1 = QFunction(
-            self.encoder.feature_dim, action_shape[0], hidden_dim
+            self.encoder.feature_dim + 17, action_shape[0], hidden_dim
         )
         self.Q2 = QFunction(
-            self.encoder.feature_dim, action_shape[0], hidden_dim
+            self.encoder.feature_dim + 17, action_shape[0], hidden_dim
         )
-
+        self.test_layer = nn.Linear(17, 17)
         self.outputs = dict()
         self.apply(weight_init)
 
-    def forward(self, image_obs, action, detach_encoder=False):
-        #[obs,image_obs] = tuple_obs
+    def forward(self, tuple_obs, action, detach_encoder=False):
+        [obs,image_obs] = tuple_obs
         # detach_encoder allows to stop gradient propogation to encoder
         encode_obs = self.encoder(image_obs, detach=detach_encoder)
 
+        obs_state_space = torch.sigmoid(self.test_layer(obs))
+        encode_obs = torch.cat((obs_state_space,encode_obs),axis = -1)
         q1 = self.Q1(encode_obs, action)
         q2 = self.Q2(encode_obs, action)
 
@@ -386,14 +388,14 @@ class CurlSacAgent(object):
         with torch.no_grad():
             #print("update critic check shape: ", next_obs.shape,": ", image_next_obs.shape)
             _, policy_action, log_pi, _ = self.actor([next_obs,image_next_obs])
-            target_Q1, target_Q2 = self.critic_target(image_next_obs, policy_action)
+            target_Q1, target_Q2 = self.critic_target([next_obs,image_next_obs], policy_action)
             target_V = torch.min(target_Q1,
                                  target_Q2) - self.alpha.detach() * log_pi
             target_Q = reward + (not_done * self.discount * target_V)
 
         # get current Q estimates
         current_Q1, current_Q2 = self.critic(
-            image_obs, action, detach_encoder=self.detach_encoder)
+            [obs,image_obs], action, detach_encoder=self.detach_encoder)
         critic_loss = F.mse_loss(current_Q1,
                                  target_Q) + F.mse_loss(current_Q2, target_Q)
         if step % self.log_interval == 0:
@@ -413,7 +415,7 @@ class CurlSacAgent(object):
 
         # detach encoder, so we don't update it with the actor loss
         _, pi, log_pi, log_std = self.actor([obs,image_obs], detach_encoder=True)
-        actor_Q1, actor_Q2 = self.critic(image_obs, pi, detach_encoder=True)
+        actor_Q1, actor_Q2 = self.critic([obs, image_obs], pi, detach_encoder=True)
 
         actor_Q = torch.min(actor_Q1, actor_Q2)
         actor_loss = (self.alpha.detach() * log_pi - actor_Q).mean()
