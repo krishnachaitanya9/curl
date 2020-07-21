@@ -92,8 +92,19 @@ class ReplayBuffer(Dataset):
         self.last_save = 0
         self.full = False
 
-    def add(self, obs, action, reward, next_obs, done,image_obs,image_next_obs):
+    def normalize_state_space(self, input_array):
+        for i, value in enumerate(input_array):
+            if i <= 7:
+                input_array[i] = (((value-(-5)) * (2))/(10)) - 1
+            else:
+                input_array[i] = (((value - (-30)) * (2)) / (60)) - 1
+        return input_array
 
+
+
+    def add(self, obs, action, reward, next_obs, done,image_obs,image_next_obs):
+        obs = self.normalize_state_space(obs)
+        next_obs = self.normalize_state_space(next_obs)
         np.copyto(self.obses[self.idx], obs)
         np.copyto(self.actions[self.idx], action)
         np.copyto(self.rewards[self.idx], reward)
