@@ -27,7 +27,7 @@ def parse_args():
     parser.add_argument('--agent', default='curl_sac', type=str)
     parser.add_argument('--init_steps', default=1000, type=int)
     parser.add_argument('--num_train_steps', default=100001, type=int)  # Limiting to 100K steps for all experiments
-    parser.add_argument('--batch_size', default=32, type=int)
+    parser.add_argument('--batch_size', default=128, type=int)
     parser.add_argument('--hidden_dim', default=1024, type=int)
     # eval
     parser.add_argument('--eval_freq', default=10000, type=int)
@@ -39,7 +39,7 @@ def parse_args():
     parser.add_argument('--critic_target_update_freq', default=2,
                         type=int)  # try to change it to 1 and retain 0.01 above
     # actor
-    parser.add_argument('--actor_lr', default=2e-4, type=float)
+    parser.add_argument('--actor_lr', default=1e-3, type=float)
     parser.add_argument('--actor_beta', default=0.9, type=float)
     parser.add_argument('--actor_log_std_min', default=-10, type=float)
     parser.add_argument('--actor_log_std_max', default=2, type=float)
