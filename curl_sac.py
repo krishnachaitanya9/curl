@@ -137,8 +137,8 @@ class QFunction(nn.Module):
         super().__init__()
 
         self.trunk = nn.Sequential(
-            nn.Linear(obs_dim + action_dim, hidden_dim), nn.ReLU(),
-            nn.Linear(hidden_dim, hidden_dim), nn.ReLU(),
+            nn.Linear(obs_dim + action_dim, hidden_dim), nn.Sigmoid(),
+            nn.Linear(hidden_dim, hidden_dim), nn.Sigmoid(),
             nn.Linear(hidden_dim, 1)
         )
 
@@ -184,13 +184,12 @@ class Critic(nn.Module):
         # detach_encoder allows to stop gradient propogation to encoder
         # encode_obs = self.encoder(image_obs, detach=detach_encoder)
 
-        obs_state_space = torch.sigmoid(self.test_layer(obs))
+        # obs_state_space = torch.sigmoid(self.test_layer(obs))
         # encode_obs = torch.cat((obs_state_space,encode_obs),axis = -1)
         # q1 = self.Q1(encode_obs, action)
         # q2 = self.Q2(encode_obs, action)
-
-        q1 = self.Q1(obs_state_space, action)
-        q2 = self.Q2(obs_state_space, action)
+        q1 = self.Q1(obs, action)
+        q2 = self.Q2(obs, action)
 
         self.outputs['q1'] = q1
         self.outputs['q2'] = q2
