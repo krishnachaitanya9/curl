@@ -163,17 +163,11 @@ class Critic(nn.Module):
             num_filters, output_logits=True
         )
 
-        # self.Q1 = QFunction(
-        #     self.encoder.feature_dim + 17, action_shape[0], hidden_dim
-        # )
         self.Q1 = QFunction(
-            17, action_shape[0], hidden_dim
+            self.encoder.feature_dim + 17, action_shape[0], hidden_dim
         )
-        # self.Q2 = QFunction(
-        #     self.encoder.feature_dim + 17, action_shape[0], hidden_dim
-        # )
         self.Q2 = QFunction(
-            17, action_shape[0], hidden_dim
+            self.encoder.feature_dim + 17, action_shape[0], hidden_dim
         )
         self.test_layer = nn.Linear(17, 17)
         self.outputs = dict()
@@ -182,14 +176,12 @@ class Critic(nn.Module):
     def forward(self, tuple_obs, action, detach_encoder=False):
         [obs,image_obs] = tuple_obs
         # detach_encoder allows to stop gradient propogation to encoder
-        # encode_obs = self.encoder(image_obs, detach=detach_encoder)
+        encode_obs = self.encoder(image_obs, detach=detach_encoder)
 
         # obs_state_space = torch.sigmoid(self.test_layer(obs))
-        # encode_obs = torch.cat((obs_state_space,encode_obs),axis = -1)
-        # q1 = self.Q1(encode_obs, action)
-        # q2 = self.Q2(encode_obs, action)
-        q1 = self.Q1(obs, action)
-        q2 = self.Q2(obs, action)
+        encode_obs = torch.cat((obs,encode_obs),axis = -1)
+        q1 = self.Q1(encode_obs, action)
+        q2 = self.Q2(encode_obs, action)
 
         self.outputs['q1'] = q1
         self.outputs['q2'] = q2
