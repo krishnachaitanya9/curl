@@ -26,7 +26,7 @@ def parse_args():
     # train
     parser.add_argument('--agent', default='curl_sac', type=str)
     parser.add_argument('--init_steps', default=1000, type=int)
-    parser.add_argument('--num_train_steps', default=500001, type=int)  # Limiting to 100K steps for all experiments
+    parser.add_argument('--num_train_steps', default=100001, type=int)  # Limiting to 100K steps for all experiments
     parser.add_argument('--batch_size', default=128, type=int)
     parser.add_argument('--hidden_dim', default=1024, type=int)
     # eval
@@ -60,7 +60,7 @@ def parse_args():
     # misc
     parser.add_argument('--seed', default=1, type=int)
     parser.add_argument('--work_dir', default='.', type=str)
-    parser.add_argument('--save_tb', default=False, action='store_true')
+    parser.add_argument('--save_tb', default=True, action='store_true')
     parser.add_argument('--save_buffer', default=False, action='store_true')
     parser.add_argument('--save_video', default=True, action='store_true')
     parser.add_argument('--save_model', default=True, action='store_true')
