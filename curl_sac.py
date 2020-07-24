@@ -89,7 +89,7 @@ class Actor(nn.Module):
 
         #print('shapes of obs after reshape:', obs.shape, ": ", encode_obs.shape)
         modified_obs = torch.sigmoid(self.test_layer(obs))
-        combine_obs = torch.cat((modified_obs,encode_obs),axis = -1)
+        combine_obs = torch.cat((encode_obs, modified_obs),axis = -1)
 
         mu, log_std = self.trunk(combine_obs).chunk(2, dim=-1)
 
