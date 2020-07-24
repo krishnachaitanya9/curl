@@ -89,7 +89,7 @@ class Actor(nn.Module):
 
         #print('shapes of obs after reshape:', obs.shape, ": ", encode_obs.shape)
         modified_obs = torch.sigmoid(self.test_layer(obs))
-        combine_obs = torch.cat((modified_obs,encode_obs),axis = -1)
+        combine_obs = torch.cat((encode_obs, modified_obs),axis = -1)
 
         mu, log_std = self.trunk(combine_obs).chunk(2, dim=-1)
 
@@ -178,8 +178,8 @@ class Critic(nn.Module):
         # detach_encoder allows to stop gradient propogation to encoder
         encode_obs = self.encoder(image_obs, detach=detach_encoder)
 
-        # obs_state_space = torch.sigmoid(self.test_layer(obs))
-        encode_obs = torch.cat((obs,encode_obs),axis = -1)
+        obs_state_space = torch.sigmoid(self.test_layer(obs))
+        encode_obs = torch.cat((encode_obs, obs_state_space),axis = -1)
         q1 = self.Q1(encode_obs, action)
         q2 = self.Q2(encode_obs, action)
 
